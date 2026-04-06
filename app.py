@@ -1,122 +1,232 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 
 # --- Configuration --- #
-# Map encoded Nutri-Score back to grades
-nutriscore_mapping_reverse = {0.0: 'A', 1.0: 'B', 2.0: 'C', 3.0: 'D', 4.0: 'E'}
+nutriscore_mapping_reverse = {0.0: "A", 1.0: "B", 2.0: "C", 3.0: "D", 4.0: "E"}
+expected_feature_columns = [
+    "nova_group",
+    "energy_kcal",
+    "fat_100g",
+    "saturated_fat_100g",
+    "carbs_100g",
+    "sugars_100g",
+    "fiber_100g",
+    "proteins_100g",
+    "salt_100g",
+    "sodium_100g",
+    "contains_gluten",
+    "contains_dairy",
+    "contains_nuts",
+    "contains_soy",
+    "contains_eggs",
+    "contains_fish",
+    "food_type_Branded/Packaged",
+    "has_allergens",
+    "fat_to_protein_ratio",
+    "sugar_to_fiber_ratio",
+    "sodium_to_energy_ratio",
+    "total_allergens_present",
+]
 
-# Expected feature columns in the order the model was trained on
-# This is crucial for correct prediction
-expected_feature_columns = ['nova_group', 'energy_kcal', 'fat_100g', 'saturated_fat_100g',
-                            'carbs_100g', 'sugars_100g', 'fiber_100g', 'proteins_100g',
-                            'salt_100g', 'sodium_100g', 'contains_gluten', 'contains_dairy',
-                            'contains_nuts', 'contains_soy', 'contains_eggs', 'contains_fish',
-                            'food_type_Branded/Packaged', 'has_allergens',
-                            'fat_to_protein_ratio', 'sugar_to_fiber_ratio',
-                            'sodium_to_energy_ratio', 'total_allergens_present']
+st.set_page_config(page_title="Nutri-Score Predictor", page_icon="🍎", layout="wide")
 
-# --- Streamlit App --- #
-st.set_page_config(page_title="Nutri-Score Predictor", layout="wide")
-st.title("🍎 Nutri-Score Predictor 📊")
-st.markdown("--- Jardine")
-st.write("Welcome to the **Nutri-Score Predictor**! \n\nInput the nutritional information of a food product using the sidebar on the left, and I'll predict its Nutri-Score grade (from A to E), providing a quick assessment of its nutritional quality.")
-st.markdown("--- Jardine")
+st.markdown(
+    """
+    <style>
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 1.5rem;
+    }
+    .hero-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+        border: 1px solid #dbeafe;
+        border-radius: 16px;
+        padding: 1.1rem 1.2rem;
+        margin-bottom: 1rem;
+    }
+    .result-card {
+        border-radius: 16px;
+        padding: 1rem 1.2rem;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        box-shadow: 0 2px 12px rgba(17, 24, 39, 0.05);
+    }
+    .grade-pill {
+        display: inline-block;
+        padding: 0.3rem 0.75rem;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        letter-spacing: 0.02em;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# Load the trained model pipeline
+
 @st.cache_resource
 def load_model():
     try:
-        model_filename = 'tuned_nutriscore_model.pkl'
-        loaded_pipeline = joblib.load(model_filename)
-        return loaded_pipeline
+        return joblib.load("tuned_nutriscore_model.pkl")
     except FileNotFoundError:
-        st.error(f"Error: Model file '{model_filename}' not found. Please ensure the model is saved.")
+        st.error("Model file `tuned_nutriscore_model.pkl` was not found in this folder.")
         st.stop()
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
+    except Exception as exc:
+        st.error(f"Model could not be loaded: {exc}")
         st.stop()
+
 
 loaded_model_pipeline = load_model()
 
-# --- User Input Section --- #
-st.sidebar.header("Input Product Details")
+st.markdown(
+    """
+    <div class="hero-card">
+        <h1 style="margin:0 0 0.4rem 0;">🍎 Nutri-Score Predictor</h1>
+        <p style="margin:0; font-size:1.02rem;">
+            Enter nutrition values per 100g and allergen details in the sidebar.
+            The app predicts the Nutri-Score grade (A to E) using your trained model.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-with st.sidebar.expander("🍚 Nutritional Values (per 100g)", expanded=True):
-    nova_group = st.slider("Nova Group (Level of Processing)", 1, 4, 3, help="1 = Unprocessed/Minimally Processed; 2 = Processed Culinary Ingredients; 3 = Processed; 4 = Ultra-Processed")
-    energy_kcal = st.number_input("Energy (kcal)", min_value=0.0, max_value=900.0, value=200.0, step=1.0)
-    fat_100g = st.number_input("Fat (g)", min_value=0.0, max_value=100.0, value=10.0, step=0.1)
-    saturated_fat_100g = st.number_input("Saturated Fat (g)", min_value=0.0, max_value=100.0, value=3.0, step=0.1)
-    carbs_100g = st.number_input("Carbohydrates (g)", min_value=0.0, max_value=100.0, value=30.0, step=0.1)
-    sugars_100g = st.number_input("Sugars (g)", min_value=0.0, max_value=100.0, value=15.0, step=0.1)
-    fiber_100g = st.number_input("Fiber (g)", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
-    proteins_100g = st.number_input("Proteins (g)", min_value=0.0, max_value=100.0, value=5.0, step=0.1)
-    salt_100g = st.number_input("Salt (g)", min_value=0.0, max_value=10.0, value=0.5, step=0.01)
-    sodium_100g = st.number_input("Sodium (g)", min_value=0.0, max_value=4.0, value=0.2, step=0.001)
+col1, col2, col3 = st.columns(3)
+col1.metric("Scale", "A to E")
+col2.metric("Model Input", "Per 100g")
+col3.metric("Food Type", "Branded/Packaged")
 
-with st.sidebar.expander("⚠️ Allergen Information", expanded=True):
-    contains_gluten = st.checkbox("Contains Gluten")
-    contains_dairy = st.checkbox("Contains Dairy")
-    contains_nuts = st.checkbox("Contains Nuts")
-    contains_soy = st.checkbox("Contains Soy")
-    contains_eggs = st.checkbox("Contains Eggs")
-    contains_fish = st.checkbox("Contains Fish")
+st.sidebar.header("Product Inputs")
+with st.sidebar.expander("Nutrition values (per 100g)", expanded=True):
+    nova_group = st.slider(
+        "NOVA group (processing level)",
+        1,
+        4,
+        3,
+        help=(
+            "1 = Unprocessed/minimally processed, 2 = Processed ingredients, "
+            "3 = Processed foods, 4 = Ultra-processed."
+        ),
+    )
+    energy_kcal = st.number_input("Energy (kcal)", 0.0, 900.0, 200.0, 1.0)
+    fat_100g = st.number_input("Fat (g)", 0.0, 100.0, 10.0, 0.1)
+    saturated_fat_100g = st.number_input("Saturated fat (g)", 0.0, 100.0, 3.0, 0.1)
+    carbs_100g = st.number_input("Carbohydrates (g)", 0.0, 100.0, 30.0, 0.1)
+    sugars_100g = st.number_input("Sugars (g)", 0.0, 100.0, 15.0, 0.1)
+    fiber_100g = st.number_input("Fiber (g)", 0.0, 10.0, 2.0, 0.1)
+    proteins_100g = st.number_input("Protein (g)", 0.0, 100.0, 5.0, 0.1)
+    salt_100g = st.number_input("Salt (g)", 0.0, 10.0, 0.5, 0.01)
+    sodium_100g = st.number_input("Sodium (g)", 0.0, 4.0, 0.2, 0.001)
 
-# Assume food_type is Branded/Packaged as per EDA insights from training data
-food_type_Branded_Packaged = True
+with st.sidebar.expander("Allergen information", expanded=True):
+    contains_gluten = st.checkbox("Contains gluten")
+    contains_dairy = st.checkbox("Contains dairy")
+    contains_nuts = st.checkbox("Contains nuts")
+    contains_soy = st.checkbox("Contains soy")
+    contains_eggs = st.checkbox("Contains eggs")
+    contains_fish = st.checkbox("Contains fish")
 
-# --- Prediction Logic --- #
-if st.sidebar.button("🚀 Predict Nutri-Score"):
-    st.subheader("Prediction in Progress...")
-    
-    # Calculate engineered features
-    fat_to_protein_ratio = fat_100g / proteins_100g if proteins_100g != 0 else 0.0
-    sugar_to_fiber_ratio = sugars_100g / fiber_100g if fiber_100g != 0 else 0.0
-    sodium_to_energy_ratio = sodium_100g / energy_kcal if energy_kcal != 0 else 0.0
+predict_clicked = st.sidebar.button("Predict Nutri-Score", use_container_width=True, type="primary")
+food_type_branded_packaged = True
 
-    total_allergens_present_count = int(contains_gluten) + int(contains_dairy) + int(contains_nuts) + \
-                                    int(contains_soy) + int(contains_eggs) + int(contains_fish)
+if predict_clicked:
+    fat_to_protein_ratio = fat_100g / proteins_100g if proteins_100g else 0.0
+    sugar_to_fiber_ratio = sugars_100g / fiber_100g if fiber_100g else 0.0
+    sodium_to_energy_ratio = sodium_100g / energy_kcal if energy_kcal else 0.0
+
+    total_allergens_present_count = (
+        int(contains_gluten)
+        + int(contains_dairy)
+        + int(contains_nuts)
+        + int(contains_soy)
+        + int(contains_eggs)
+        + int(contains_fish)
+    )
     has_allergens_bool = 1 if total_allergens_present_count > 0 else 0
 
-    # Create a DataFrame from user inputs, ensuring column order matches training data
     input_data_values = [
-        nova_group, energy_kcal, fat_100g, saturated_fat_100g, carbs_100g, sugars_100g, fiber_100g,
-        proteins_100g, salt_100g, sodium_100g,
-        contains_gluten, contains_dairy, contains_nuts, contains_soy, contains_eggs, contains_fish,
-        food_type_Branded_Packaged, has_allergens_bool,
-        fat_to_protein_ratio, sugar_to_fiber_ratio, sodium_to_energy_ratio, total_allergens_present_count
+        nova_group,
+        energy_kcal,
+        fat_100g,
+        saturated_fat_100g,
+        carbs_100g,
+        sugars_100g,
+        fiber_100g,
+        proteins_100g,
+        salt_100g,
+        sodium_100g,
+        contains_gluten,
+        contains_dairy,
+        contains_nuts,
+        contains_soy,
+        contains_eggs,
+        contains_fish,
+        food_type_branded_packaged,
+        has_allergens_bool,
+        fat_to_protein_ratio,
+        sugar_to_fiber_ratio,
+        sodium_to_energy_ratio,
+        total_allergens_present_count,
     ]
 
     input_df = pd.DataFrame([input_data_values], columns=expected_feature_columns)
-
-    # Ensure boolean columns are of the correct type (bool or int based on model expectation)
-    for col in ['contains_gluten', 'contains_dairy', 'contains_nuts', 'contains_soy', 'contains_eggs', 'contains_fish', 'food_type_Branded/Packaged']:
+    for col in [
+        "contains_gluten",
+        "contains_dairy",
+        "contains_nuts",
+        "contains_soy",
+        "contains_eggs",
+        "contains_fish",
+        "food_type_Branded/Packaged",
+    ]:
         input_df[col] = input_df[col].astype(bool)
 
-    # Predict Nutri-Score
     prediction_encoded = loaded_model_pipeline.predict(input_df)[0]
     predicted_grade = nutriscore_mapping_reverse.get(prediction_encoded, "Unknown")
 
-    st.subheader("Prediction Results:")
-    grade_color = {
-        'A': 'green', 'B': 'lightgreen', 'C': 'orange', 'D': 'red', 'E': 'darkred', 'Unknown': 'gray'
+    grade_colors = {
+        "A": ("#15803d", "#dcfce7"),
+        "B": ("#65a30d", "#ecfccb"),
+        "C": ("#d97706", "#fef3c7"),
+        "D": ("#dc2626", "#fee2e2"),
+        "E": ("#991b1b", "#fee2e2"),
+        "Unknown": ("#374151", "#f3f4f6"),
     }
-    st.markdown(f"The predicted Nutri-Score is: <span style='color:{grade_color[predicted_grade]}; font-size: 2.5em; font-weight: bold;'>Grade {predicted_grade}</span>", unsafe_allow_html=True)
-    
-    if predicted_grade in ['A', 'B']:
+    text_color, bg_color = grade_colors[predicted_grade]
+
+    st.markdown("## Prediction Result")
+    st.markdown(
+        f"""
+        <div class="result-card">
+            <div style="font-size:1rem; color:#374151; margin-bottom:0.5rem;">Predicted Nutri-Score</div>
+            <div style="font-size:2.1rem; font-weight:700; color:{text_color}; margin-bottom:0.5rem;">
+                Grade {predicted_grade}
+            </div>
+            <span class="grade-pill" style="color:{text_color}; background:{bg_color};">
+                Nutritional quality indicator
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if predicted_grade in ["A", "B"]:
+        st.success("Great nutritional profile based on the provided values.")
         st.balloons()
-        st.success("🎉 Great choice! This product has a good Nutri-Score.")
-    elif predicted_grade in ['C']:
-        st.info("👍 This product has a moderate Nutri-Score.")
-    elif predicted_grade in ['D', 'E']:
-        st.warning("⚠️ Consider healthier alternatives, this product has a less favorable Nutri-Score.")
+    elif predicted_grade == "C":
+        st.info("Moderate nutritional profile. Small improvements may help.")
+    else:
+        st.warning("Lower nutritional profile. Consider healthier alternatives.")
 
-    st.markdown("--- Jardine")
-    st.write("**Detailed Input Data Used for Prediction:**")
-    st.dataframe(input_df)
+    with st.expander("Show model input used for this prediction"):
+        st.dataframe(input_df, use_container_width=True)
+else:
+    st.info("Fill in the sidebar and click **Predict Nutri-Score** to generate a result.")
 
-st.markdown("--- Jardine")
-st.write("### How to run this app locally:")
-st.code("1. Save the code above as `app.py`\n2. Make sure `tuned_nutriscore_model.pkl` is in the same directory.\n3. Open your terminal or command prompt.\n4. Navigate to the directory where you saved the files.\n5. Run the command: `streamlit run app.py`")
-st.markdown("--- Jardine")
+st.markdown("### Run locally")
+st.code(
+    "pip install -r requirements.txt\nstreamlit run app.py",
+    language="bash",
+)
